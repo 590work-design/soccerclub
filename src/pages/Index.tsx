@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { VolunteerList } from '@/components/VolunteerList';
 import { VolunteerDetailPanel } from '@/components/VolunteerDetailPanel';
-import { AllSlotsView } from '@/components/AllSlotsView';
+import { ManageTasks } from '@/components/ManageTasks';
 import { SlotDetailView } from '@/components/SlotDetailView';
 import { SettingsPage } from '@/components/SettingsPage';
 import { DashboardPage } from '@/components/DashboardPage';
-import { api, Volunteer } from '@/services/api';
+import { api, Volunteer, Slot } from '@/services/api';
 import { toast } from 'sonner';
 
 const Index = () => {
@@ -23,16 +23,30 @@ const Index = () => {
   const [loading, setLoading] = useState(true);
   const [volunteerFilter, setVolunteerFilter] = useState<{ type: string; value: string } | undefined>();
   const [slotFilter, setSlotFilter] = useState<{ type: string; value: string } | undefined>();
+  // Use intersection type correctly for enriched slots
+  const [allSlots, setAllSlots] = useState<(Slot & { volunteer?: Volunteer })[]>([]);
 
   useEffect(() => {
     const loadAll = async () => {
       setLoading(true);
       try {
-        const all = await api.volunteers.getAllAll();
-        setAllVolunteers(all);
-        setVolunteers(all.slice(0, pageSize));
+        const [volunteersData, slotsData] = await Promise.all([
+          api.volunteers.getAllAll(),
+          api.slots.getAll()
+        ]);
+
+        setAllVolunteers(volunteersData);
+        setVolunteers(volunteersData.slice(0, pageSize));
+
+        // Map volunteers to slots
+        const enrichedSlots = slotsData.map(slot => ({
+          ...slot,
+          volunteer: volunteersData.find(v => v.id === slot.volunteer_id)
+        }));
+        setAllSlots(enrichedSlots);
+
         setCurrentPage(0);
-        setHasMore(all.length > pageSize);
+        setHasMore(volunteersData.length > pageSize);
       } catch (err) {
         console.error('Failed to load all volunteers', err);
         toast.error('Failed to load volunteers. Please check your API connection.');
@@ -97,7 +111,7 @@ const Index = () => {
     if (tab === 'Volunteers') {
       setVolunteerFilter(filter);
       setSlotFilter(undefined);
-    } else if (tab === 'Slots') {
+    } else if (tab === 'Manage Tasks') {
       setSlotFilter(filter);
       setVolunteerFilter(undefined);
     } else {
@@ -119,7 +133,7 @@ const Index = () => {
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <Header activeTab={activeTab} onTabChange={handleTabChange} />
-      
+
       <div className="flex flex-1 overflow-hidden pt-16">
         {activeTab === 'Dashboard' ? (
           <div className="w-full h-full">
@@ -154,17 +168,18 @@ const Index = () => {
               </div>
             )}
           </>
-        ) : activeTab === 'Slots' ? (
+        ) : activeTab === 'Manage Tasks' ? (
           <div className="w-full h-full">
             {selectedSlot ? (
-              <SlotDetailView 
-                slot={selectedSlot} 
+              <SlotDetailView
+                slot={selectedSlot}
                 onBack={handleBackFromSlotDetail}
               />
             ) : (
-              <AllSlotsView 
-                onSlotClick={handleSlotClick} 
-                initialFilter={slotFilter}
+              <ManageTasks
+                slots={allSlots}
+                onAddClick={() => toast.info('Add task not implemented yet')}
+                onDeleteClick={(id) => toast.info(`Delete task ${id} not implemented yet`)}
               />
             )}
           </div>

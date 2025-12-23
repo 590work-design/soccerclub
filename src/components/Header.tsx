@@ -17,7 +17,7 @@ interface HeaderProps {
 
 export const Header = ({ activeTab, onTabChange }: HeaderProps) => {
   const [showProfilePanel, setShowProfilePanel] = useState(false);
-  const tabs = ['Dashboard', 'Volunteers', 'Slots', 'Settings', 'Reports'];
+  const tabs = ['Dashboard', 'Volunteers', 'Manage Tasks', 'Settings', 'Reports'];
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-16 border-b border-border bg-card shadow-sm">
@@ -62,9 +62,9 @@ export const Header = ({ activeTab, onTabChange }: HeaderProps) => {
       </div>
 
       {/* Profile Panel */}
-      <ProfilePanel 
-        isOpen={showProfilePanel} 
-        onClose={() => setShowProfilePanel(false)} 
+      <ProfilePanel
+        isOpen={showProfilePanel}
+        onClose={() => setShowProfilePanel(false)}
       />
     </header>
   );
