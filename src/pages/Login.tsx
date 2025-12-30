@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { toast } from 'sonner';
 import { User, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { api } from '@/services/api'; // ADDED: import api to call auth.login (calls FastAPI)
+import logo from '@/assets/logo.svg';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -28,7 +29,7 @@ const Login = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Basic validation
     if (!formData.email.trim()) {
       toast.error('Please enter your email');
@@ -47,7 +48,7 @@ const Login = () => {
     }
 
     setIsLoading(true);
-    
+
     // ADDED: call the FastAPI login endpoint via api.auth.login
     // Reason: replace the simulated setTimeout with a real API call that
     // returns an access token (FastAPI expects form-url-encoded fields).
@@ -96,44 +97,56 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/20 p-4">
-      <Card className="w-full max-w-md shadow-lg border-border/50">
-        <CardHeader className="text-center space-y-2">
-          <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-2">
-            <User className="w-8 h-8 text-primary" />
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1e293b] via-[#1a2b5e] to-[#0f172a] p-4 relative overflow-hidden">
+      {/* Decorative background elements */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-blue-500/10 blur-[100px]" />
+        <div className="absolute top-[60%] -right-[10%] w-[40%] h-[40%] rounded-full bg-yellow-500/5 blur-[100px]" />
+      </div>
+
+      <Card className="w-full max-w-md shadow-2xl border-0 overflow-hidden relative z-10 animate-in fade-in zoom-in duration-500 hover:shadow-3xl transition-shadow">
+        {/* Accent Bar */}
+        <div className="h-1 w-full bg-[#d4af37]" />
+
+        <CardHeader className="text-center space-y-2 pt-8 pb-6">
+          <div className="mx-auto h-32 w-auto flex items-center justify-center mb-6">
+            <img src={logo} alt="Sportlink Club" className="h-full w-auto object-contain drop-shadow-sm" />
           </div>
-          <CardTitle className="text-2xl font-bold text-foreground">
-            Volunteer Dashboard
+          <CardTitle className="text-2xl font-bold tracking-tight text-[#1a2b5e]">
+            Welcome back
           </CardTitle>
-          <CardDescription className="text-muted-foreground">
-            Enter your credentials to access the dashboard
+          <CardDescription className="text-muted-foreground text-base">
+            Sign in to access the volunteer portal
           </CardDescription>
         </CardHeader>
-        
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+
+        <CardContent className="px-8 pb-8">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email Field */}
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-foreground">Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Label htmlFor="email" className="text-[#1a2b5e] font-medium">Email address</Label>
+              <div className="relative group">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                 <Input
                   id="email"
                   name="email"
                   type="email"
-                  placeholder="Enter your email"
+                  placeholder="name@example.com"
                   value={formData.email}
                   onChange={handleChange}
-                  className="pl-10"
+                  className="pl-10 h-12 text-base bg-muted/30 border-input group-hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all"
                 />
               </div>
             </div>
 
             {/* Password Field */}
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-foreground">Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password" className="text-[#1a2b5e] font-medium">Password</Label>
+                <a href="#" className="text-xs font-medium text-primary hover:underline hover:text-primary/80">Forgot password?</a>
+              </div>
+              <div className="relative group">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                 <Input
                   id="password"
                   name="password"
@@ -141,12 +154,12 @@ const Login = () => {
                   placeholder="Enter your password"
                   value={formData.password}
                   onChange={handleChange}
-                  className="pl-10 pr-10"
+                  className="pl-10 pr-10 h-12 text-base bg-muted/30 border-input group-hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -154,16 +167,30 @@ const Login = () => {
             </div>
 
             {/* Submit Button */}
-            <Button 
-              type="submit" 
-              className="w-full mt-6"
+            <Button
+              type="submit"
+              className="w-full h-12 text-base font-semibold shadow-md bg-[#1a2b5e] hover:bg-[#2a3f7e] active:scale-[0.99] transition-all mt-4"
               disabled={isLoading}
             >
-              {isLoading ? 'Signing in...' : 'Sign In'}
+              {isLoading ? (
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin"></div>
+                  <span>Signing in...</span>
+                </div>
+              ) : (
+                'Sign In'
+              )}
             </Button>
           </form>
         </CardContent>
+
+
       </Card>
+
+      {/* Footer Branding on background */}
+      <div className="absolute bottom-6 left-0 w-full text-center text-white/30 text-sm font-light">
+        Empowering Volunteers
+      </div>
     </div>
   );
 };

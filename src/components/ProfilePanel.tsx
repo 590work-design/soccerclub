@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Eye, EyeOff } from 'lucide-react';
+import { X, Eye, EyeOff, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,7 +16,7 @@ export const ProfilePanel = ({ isOpen, onClose }: ProfilePanelProps) => {
     username: 'admin',
     password: 'password123'
   });
-  
+
   const [showPassword, setShowPassword] = useState(false);
 
   const handleSave = () => {
@@ -43,19 +43,24 @@ export const ProfilePanel = ({ isOpen, onClose }: ProfilePanelProps) => {
   return (
     <>
       {/* Backdrop */}
-      <div 
-        className="fixed inset-0 z-40 bg-black/50" 
+      <div
+        className="fixed inset-0 z-40 bg-black/50"
         onClick={onClose}
       />
-      
+
       {/* Profile Panel */}
       <div className="fixed right-6 top-20 z-50 w-96 rounded-lg border border-border bg-card p-6 shadow-lg">
-        {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-card-foreground">Profile Settings</h2>
+        {/* Blue Header Strip */}
+        <div className="mb-6 bg-primary text-primary-foreground p-4 rounded-md flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-full bg-white/10">
+              <User className="h-4 w-4" />
+            </div>
+            <h2 className="text-lg font-bold">Profile Settings</h2>
+          </div>
           <button
             onClick={onClose}
-            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="rounded-md p-1 text-primary-foreground/80 transition-colors hover:bg-white/20 hover:text-white"
             aria-label="Close"
           >
             <X className="h-5 w-5" />

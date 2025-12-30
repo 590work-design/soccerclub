@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, Filter, X } from 'lucide-react';
+import { Search, Filter, X, Users } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -66,10 +66,10 @@ export const VolunteerList = ({
     return volunteers.filter((volunteer) => {
       // Search filter
       const matchesSearch = volunteer.name.toLowerCase().includes(searchQuery.toLowerCase());
-      
+
       // Status filter
       const matchesStatus = statusFilter === 'all' || volunteer.status === statusFilter;
-      
+
       // Booking filter
       let matchesBooking = true;
       if (bookingFilter === 'booked') {
@@ -77,7 +77,7 @@ export const VolunteerList = ({
       } else if (bookingFilter === 'non-booked') {
         matchesBooking = volunteer.booked_slots === 0;
       }
-      
+
       return matchesSearch && matchesStatus && matchesBooking;
     });
   }, [volunteers, searchQuery, statusFilter, bookingFilter]);
@@ -92,6 +92,17 @@ export const VolunteerList = ({
 
   return (
     <div className="flex h-full flex-col border-r border-border bg-card">
+      {/* Blue Header Strip */}
+      <div className="bg-primary text-primary-foreground p-4 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2">
+          <Users className="h-6 w-6" />
+          <h2 className="text-xl font-bold">Volunteers</h2>
+        </div>
+        <div className="flex items-center gap-4">
+          {/* Place for extra actions if needed */}
+        </div>
+      </div>
+
       {/* Search bar and filter toggle */}
       <div className="border-b border-border p-4 space-y-3">
         <div className="flex items-center gap-2">
@@ -158,8 +169,8 @@ export const VolunteerList = ({
                 {statusFilter !== 'all' && (
                   <Badge variant="secondary" className="gap-1">
                     Status: {statusFilter}
-                    <X 
-                      className="h-3 w-3 cursor-pointer" 
+                    <X
+                      className="h-3 w-3 cursor-pointer"
                       onClick={() => setStatusFilter('all')}
                     />
                   </Badge>
@@ -167,8 +178,8 @@ export const VolunteerList = ({
                 {bookingFilter !== 'all' && (
                   <Badge variant="secondary" className="gap-1">
                     {bookingFilter === 'booked' ? 'Has Bookings' : 'No Bookings'}
-                    <X 
-                      className="h-3 w-3 cursor-pointer" 
+                    <X
+                      className="h-3 w-3 cursor-pointer"
                       onClick={() => setBookingFilter('all')}
                     />
                   </Badge>

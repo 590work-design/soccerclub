@@ -53,7 +53,13 @@ export const Header = ({ activeTab, onTabChange }: HeaderProps) => {
               My Profile
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">
+            <DropdownMenuItem
+              className="text-destructive"
+              onClick={() => {
+                sessionStorage.removeItem('token');
+                window.location.href = '/'; // Simple redirect to login
+              }}
+            >
               <LogOut className="mr-2 h-4 w-4" />
               Logout
             </DropdownMenuItem>

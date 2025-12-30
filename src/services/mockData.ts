@@ -120,6 +120,14 @@ export const mockSlots: Record<number, Slot[]> = {
     {
       id: 104,
       volunteer_id: 1,
+      date: '2025-12-26', // Matching the "Vr 26 Dec" in screenshot roughly
+      time: '19:30 - 22:00',
+      description: 'Bar service Thursday 7:30 PM - 10:00 PM',
+      status: 'confirmed',
+    },
+    {
+      id: 104,
+      volunteer_id: 1,
       date: '2025-11-15',
       time: '15:00',
       description: 'Library book sorting',

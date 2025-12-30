@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Users, Calendar, Bell, UserCheck, UserX, CalendarCheck, CalendarX, Clock } from 'lucide-react';
+import { Users, Calendar, Bell, UserCheck, UserX, CalendarCheck, CalendarX, Clock, LayoutDashboard } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { api, Volunteer, Slot } from '@/services/api';
 
@@ -81,16 +82,16 @@ export const DashboardPage = ({ onNavigate }: DashboardPageProps) => {
     }
   };
 
-  const StatCard = ({ 
-    title, 
-    value, 
-    icon: Icon, 
+  const StatCard = ({
+    title,
+    value,
+    icon: Icon,
     description,
     color = 'primary',
     onClick
-  }: { 
-    title: string; 
-    value: number; 
+  }: {
+    title: string;
+    value: number;
     icon: any;
     description?: string;
     color?: 'primary' | 'success' | 'warning' | 'destructive' | 'muted';
@@ -105,7 +106,7 @@ export const DashboardPage = ({ onNavigate }: DashboardPageProps) => {
     };
 
     return (
-      <Card 
+      <Card
         className={`transition-all hover:shadow-md ${onClick ? 'cursor-pointer hover:border-primary' : ''}`}
         onClick={onClick}
       >
@@ -132,9 +133,17 @@ export const DashboardPage = ({ onNavigate }: DashboardPageProps) => {
   return (
     <div className="h-full overflow-auto bg-background p-6">
       <div className="mx-auto max-w-6xl space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground">Overview of all volunteer and slot activities</p>
+        {/* Blue Header Strip */}
+        <div className="bg-primary text-primary-foreground p-4 rounded-md flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-2">
+            <LayoutDashboard className="h-6 w-6" />
+            <h2 className="text-xl font-bold">Dashboard</h2>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-sm opacity-90">
+              <span>Overview of volunteer activities</span>
+            </div>
+          </div>
         </div>
 
         {/* Volunteers Section */}

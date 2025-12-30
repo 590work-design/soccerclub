@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Bell, Save, Send, UserX } from 'lucide-react';
+import { Bell, Save, Send, UserX, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ReminderSetting {
@@ -62,8 +62,17 @@ export const SettingsPage = () => {
   return (
     <div className="h-full overflow-auto bg-background p-6">
       <div className="mx-auto max-w-6xl space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Settings</h1>
+        {/* Blue Header Strip */}
+        <div className="bg-primary text-primary-foreground p-4 rounded-md flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-2">
+            <Settings className="h-6 w-6" />
+            <h2 className="text-xl font-bold">Settings</h2>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-sm opacity-90">
+              <span>Manage application configuration</span>
+            </div>
+          </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
@@ -124,8 +133,8 @@ export const SettingsPage = () => {
                 </div>
               ))}
 
-              <Button 
-                onClick={handleSaveSettings} 
+              <Button
+                onClick={handleSaveSettings}
                 disabled={isSaving}
                 className="w-full"
               >
@@ -158,7 +167,7 @@ export const SettingsPage = () => {
                       This will send a notification to all volunteers who haven't booked any slots, encouraging them to make a booking.
                     </p>
                   </div>
-                  <Button 
+                  <Button
                     onClick={handleSendNotification}
                     disabled={isSendingNotification}
                     className="w-full"

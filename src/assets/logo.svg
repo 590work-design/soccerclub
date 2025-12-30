@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 240">
+  <!-- Shield Shape -->
+  <path d="M10,10 Q100,20 190,10 V140 Q100,260 10,140 Z" fill="#D4AF37" />
+  
+  <!-- Content Wave/Bottom -->
+  <path d="M10,140 Q50,100 100,140 T190,140 V150 Q100,260 10,150 Z" fill="#2C3E50" />
+  <path d="M10,120 Q30,160 70,120 T130,120 T190,120 V140 Q100,260 10,140 Z" fill="#2C3E50" stroke="white" stroke-width="3" />
+
+  <!-- Text BRC -->
+  <text x="100" y="80" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="60" fill="black" stroke="white" stroke-width="1">BRC</text>
+  
+  <!-- Bottom Text -->
+  <path id="curve" d="M30,160 Q100,210 170,160" fill="transparent" />
+  <text font-family="Arial, sans-serif" font-size="10" fill="white" font-weight="bold">
+    <textPath href="#curve" startOffset="50%" text-anchor="middle">
+      DE LINGE VERBINDT ONS
+    </textPath>
+  </text>
+</svg>

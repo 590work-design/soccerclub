@@ -1,17 +1,16 @@
-// src/services/api.ts
-import { mockVolunteers, mockSlots, getNextSlotId } from './mockData';
+import { mockVolunteers, mockSlots } from './mockData';
 
-/*
-  ADDED: Default mock toggle reads env and defaults to false (use real API).
-  Set VITE_USE_MOCK=true in .env if you explicitly want mock data again.
-*/
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
-// FORCE: Disable mock data so the app always uses the real backend API.
-// To re-enable mocks for local testing set `VITE_USE_MOCK='true'` in your .env
-// and change this line back to read from `import.meta.env`.
-const USE_MOCK_DATA = false;
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+export const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
+
+export const PREDEFINED_LOCATIONS = [
+  { id: 1, name: "Sports park Molenzicht" },
+  { id: 2, name: "Clubhouse" },
+  { id: 3, name: "Main Field" }
+];
+
 // Disable slots API calls while backend slot endpoints are not ready.
-export const ENABLE_SLOTS_API = false;
+export const ENABLE_SLOTS_API = false; // Disabled by user request
 
 /*
   Volunteer shape used by the UI. Backend returns many fields (see Swagger).
@@ -20,7 +19,7 @@ export const ENABLE_SLOTS_API = false;
 */
 interface Volunteer {
   id: number;
-  name: string;            // frontend-friendly composed name
+  name: string;
   first_name?: string;
   last_name?: string;
   email?: string;
@@ -49,6 +48,7 @@ interface Slot {
   time: string;
   description: string;
   status: 'confirmed' | 'pending' | 'cancelled';
+  task_template_id?: number; // Added for linking
 }
 
 interface CreateSlotData {
@@ -66,29 +66,75 @@ interface UpdateSlotData {
   status?: string;
 }
 
+// ADDED: TaskTemplate interface based on Swagger
+interface TaskTemplate {
+  id: number;
+  name: string;
+  description: string;
+  location_id?: number;
+  location_name?: string; // Enhanced by frontend lookup or backend join
+  minimum_age?: number;
+  gender?: string;
+  target_audience?: string;
+  default_task_duration?: number;
+  task_value?: number;
+  calendar_color?: string;
+  created_by?: number;
+  is_active?: boolean;
+  start_date?: string;
+  end_date?: string;
+  required_diploma_association?: string;
+  required_diploma_bond?: string;
+  min_volunteers?: number;
+  max_volunteers?: number;
+  today?: boolean;
+  status?: string;
+  publish_on_website?: boolean;
+  publish_on_mobile?: boolean;
+  allow_registration?: boolean;
+  allow_swapping?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+interface TaskManager {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  is_active: boolean;
+}
+
+interface CreateTaskTemplateData {
+  name: string;
+  description: string;
+  location_id?: number;
+  start_date?: string;
+  end_date?: string;
+  is_active?: boolean;
+}
+
 /* ADDED: improved handleResponse to surface JSON "detail" errors and handle empty bodies */
 const handleResponse = async (response: Response) => {
   if (!response.ok) {
     const text = await response.text();
     try {
       const json = text ? JSON.parse(text) : {};
-      // FastAPI frequently uses { "detail": ... }
-      throw new Error(json.detail || JSON.stringify(json) || `HTTP error! status: ${response.status}`);
+      throw new Error(json.detail || JSON.stringify(json) || `HTTP error! status: ${response.status} `);
     } catch {
-      throw new Error(text || `HTTP error! status: ${response.status}`);
+      throw new Error(text || `HTTP error! status: ${response.status} `);
     }
   }
   const text = await response.text();
   return text ? JSON.parse(text) : undefined;
 };
 
-// Simulate API delay when mocking
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
 /* ADDED: helper to get Authorization header from token stored in sessionStorage */
 const getAuthHeaders = () => {
   const token = sessionStorage.getItem('token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  if (!token) console.warn('[AutoDebug] No token in sessionStorage!');
+  else console.log('[AutoDebug] Using token:', token.substring(0, 10) + '...');
+  return token ? { Authorization: `Bearer ${token} ` } : {};
 };
 
 /* ADDED: Maps backend volunteer object (Swagger example shape) to frontend Volunteer */
@@ -97,8 +143,8 @@ const mapBackendVolunteerToFrontend = (b: any): Volunteer => {
 
   const first = b.first_name ?? '';
   const last = b.last_name ?? '';
-  const nameFromParts = (first || last) ? `${first} ${last}`.trim() : undefined;
-  const name = nameFromParts ?? b.name ?? b.full_name ?? `#${id}`;
+  const nameFromParts = (first || last) ? `${first} ${last} `.trim() : undefined;
+  const name = nameFromParts ?? b.name ?? b.full_name ?? `#${id} `;
 
   const isActive = typeof b.is_active !== 'undefined'
     ? Boolean(b.is_active)
@@ -109,7 +155,7 @@ const mapBackendVolunteerToFrontend = (b: any): Volunteer => {
     : (typeof b.points !== 'undefined' ? Number(b.points) : 0);
 
   const booked = typeof b.booked_slots !== 'undefined' ? Number(b.booked_slots)
-               : (typeof b.bookings !== 'undefined' ? Number(b.bookings) : 0);
+    : (typeof b.bookings !== 'undefined' ? Number(b.bookings) : 0);
 
   return {
     id,
@@ -136,10 +182,6 @@ const mapBackendVolunteerToFrontend = (b: any): Volunteer => {
 };
 
 export const api = {
-  /* ADDED: auth.login
-     Sends application/x-www-form-urlencoded request to FastAPI auth login endpoint.
-     Matches your OpenAPI screenshot expecting 'username' + 'password'.
-  */
   auth: {
     login: async (data: {
       username: string;
@@ -148,10 +190,28 @@ export const api = {
       scope?: string;
       client_id?: string;
       client_secret?: string;
-    }): Promise<{ access_token: string; token_type: string; [k: string]: any }> => {
-      if (USE_MOCK_DATA) {
-        await delay(400);
-        return { access_token: 'mock-token', token_type: 'bearer' };
+    }): Promise<{ access_token: string; token_type: string;[k: string]: any }> => {
+      const useMock = import.meta.env.VITE_USE_MOCK === 'true';
+
+      if (useMock) {
+        console.log('[Mock] Logging in with strict mock data');
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        if (data.username === 'fail') {
+          throw new Error('Invalid credentials');
+        }
+
+        return {
+          access_token: 'mock-jwt-token-12345',
+          token_type: 'bearer',
+          user: {
+            id: 1,
+            name: 'Mock User',
+            email: data.username,
+            role: 'admin'
+          }
+        };
       }
 
       const form = new URLSearchParams();
@@ -173,11 +233,6 @@ export const api = {
   },
 
   volunteers: {
-    /**
-     * getAll(skip, limit) -> calls /api/v1/volunteers?skip=...&limit=...
-     * Returns array of mapped Volunteer objects.
-     */
-    // simple in-memory caching + dedupe for volunteer requests
     _cache: {
       getAll: new Map<string, Volunteer[]>(),
       getById: new Map<number, Volunteer | null>(),
@@ -188,7 +243,14 @@ export const api = {
     },
 
     getAll: async (skip = 0, limit = 100): Promise<Volunteer[]> => {
-      const key = `${skip}:${limit}`;
+      const useMock = import.meta.env.VITE_USE_MOCK === 'true';
+      if (useMock) {
+        console.log('[Mock] Fetching all volunteers');
+        await new Promise(resolve => setTimeout(resolve, 300));
+        return mockVolunteers.slice(skip, skip + limit);
+      }
+
+      const key = `${skip}:${limit} `;
 
       if (api.volunteers._cache.getAll.has(key)) {
         return api.volunteers._cache.getAll.get(key)!;
@@ -199,18 +261,14 @@ export const api = {
       }
 
       const p = (async () => {
-        if (USE_MOCK_DATA) {
-          await delay(500);
-          const slice = mockVolunteers.slice(skip, skip + limit).map(mapBackendVolunteerToFrontend);
-          api.volunteers._cache.getAll.set(key, slice);
-          return slice;
-        }
-
         const params = new URLSearchParams();
         params.append('skip', String(skip));
         params.append('limit', String(limit));
 
-        const response = await fetch(`${API_BASE_URL}/api/v1/volunteers?${params.toString()}`, {
+        const url = `${API_BASE_URL}/api/v1/volunteers?${params.toString()}`;
+        console.log('[DEBUG] Fetching volunteers from:', url);
+
+        const response = await fetch(url, {
           headers: {
             'Content-Type': 'application/json',
             ...getAuthHeaders(),
@@ -237,16 +295,10 @@ export const api = {
       }
     },
 
-    /**
-     * Fetch all volunteers by attempting a single large fetch, falling back
-     * to paginated fetching if the backend enforces limits.
-     */
     getAllAll: async (): Promise<Volunteer[]> => {
-      // Try one large request first (backend might support returning all)
       const tryLarge = await api.volunteers.getAll(0, 10000);
       if (tryLarge.length < 10000) return tryLarge;
 
-      // Backend limited result; fetch in pages of 500 until exhausted
       const pageSize = 500;
       let all = [...tryLarge];
       let skip = tryLarge.length;
@@ -259,10 +311,15 @@ export const api = {
       return all;
     },
 
-    /**
-     * getById -> calls /api/v1/volunteers/{id}
-     */
     getById: async (id: number): Promise<Volunteer> => {
+      const useMock = import.meta.env.VITE_USE_MOCK === 'true';
+      if (useMock) {
+        console.log('[Mock] Fetching volunteer', id);
+        const v = mockVolunteers.find(mv => mv.id === id);
+        if (!v) throw new Error('Volunteer not found');
+        return v;
+      }
+
       if (api.volunteers._cache.getById.has(id)) {
         const cached = api.volunteers._cache.getById.get(id);
         if (cached) return cached;
@@ -273,15 +330,6 @@ export const api = {
       }
 
       const p = (async () => {
-        if (USE_MOCK_DATA) {
-          await delay(300);
-          const volunteer = mockVolunteers.find((v: any) => v.id === id);
-          if (!volunteer) throw new Error('Volunteer not found');
-          const mapped = mapBackendVolunteerToFrontend(volunteer);
-          api.volunteers._cache.getById.set(id, mapped);
-          return mapped;
-        }
-
         const response = await fetch(`${API_BASE_URL}/api/v1/volunteers/${id}`, {
           headers: {
             'Content-Type': 'application/json',
@@ -304,14 +352,6 @@ export const api = {
     },
 
     update: async (id: number, data: Partial<Volunteer>): Promise<Volunteer> => {
-      if (USE_MOCK_DATA) {
-        await delay(400);
-        const index = mockVolunteers.findIndex((v: any) => v.id === id);
-        if (index === -1) throw new Error('Volunteer not found');
-        mockVolunteers[index] = { ...mockVolunteers[index], ...data };
-        return mockVolunteers[index];
-      }
-
       const response = await fetch(`${API_BASE_URL}/api/v1/volunteers/${id}`, {
         method: 'PUT',
         headers: {
@@ -326,57 +366,219 @@ export const api = {
     },
 
     delete: async (id: number): Promise<void> => {
-      if (USE_MOCK_DATA) {
-        await delay(400);
-        const index = mockVolunteers.findIndex((v: any) => v.id === id);
-        if (index === -1) throw new Error('Volunteer not found');
-        mockVolunteers.splice(index, 1);
-        return;
-      }
-
       const response = await fetch(`${API_BASE_URL}/api/v1/volunteers/${id}`, {
         method: 'DELETE',
         headers: { ...getAuthHeaders() },
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to delete volunteer: ${response.status}`);
+        throw new Error(`Failed to delete volunteer: ${response.status} `);
+      }
+    },
+  },
+
+  taskTemplates: {
+    getAll: async (skip = 0, limit = 100): Promise<TaskTemplate[]> => {
+      const useMock = import.meta.env.VITE_USE_MOCK === 'true';
+      if (useMock) {
+        console.log('[Mock] Fetching task templates');
+        // Return dummy task templates if strict mock data is needed, or empty array
+        return [
+          {
+            id: 1,
+            name: 'Bar Service Test',
+            description: 'Mock bar service',
+            task_value: 10,
+            min_volunteers: 2,
+            max_volunteers: 4
+          }
+        ];
+      }
+
+      const params = new URLSearchParams();
+      params.append('skip', String(skip));
+      params.append('limit', String(limit));
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/task-templates?${params.toString()}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+      });
+
+      const data = await handleResponse(response);
+      if (!Array.isArray(data)) {
+        if (data && Array.isArray((data as any).results)) return (data as any).results as TaskTemplate[];
+        if (data == null) return [];
+        throw new Error('Unexpected task-templates response shape');
+      }
+      return data as TaskTemplate[];
+    },
+
+    getById: async (id: number): Promise<TaskTemplate> => {
+      const response = await fetch(`${API_BASE_URL}/api/v1/task-templates/${id}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+      });
+      return (await handleResponse(response)) as TaskTemplate;
+    },
+
+    create: async (data: CreateTaskTemplateData): Promise<TaskTemplate> => {
+      const response = await fetch(`${API_BASE_URL}/api/v1/task-templates`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify(data),
+      });
+
+      return (await handleResponse(response)) as TaskTemplate;
+    },
+
+    update: async (id: number, data: Partial<TaskTemplate>): Promise<TaskTemplate> => {
+      const response = await fetch(`${API_BASE_URL}/api/v1/task-templates/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify(data),
+      });
+      return (await handleResponse(response)) as TaskTemplate;
+    },
+
+    delete: async (id: number): Promise<void> => {
+      const response = await fetch(`${API_BASE_URL}/api/v1/task-templates/${id}`, {
+        method: 'DELETE',
+        headers: {
+          ...getAuthHeaders(),
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to delete task template: ${response.status}`);
+      }
+    },
+
+    getPublication: async (id: number): Promise<{
+      publish_on_website: boolean;
+      publish_on_mobile: boolean;
+      allow_registration: boolean;
+      allow_swapping: boolean;
+    }> => {
+      const response = await fetch(`${API_BASE_URL}/api/v1/task-templates/${id}/publication`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+      });
+      return await handleResponse(response);
+    },
+
+    updatePublication: async (id: number, data: {
+      publish_on_website: boolean;
+      publish_on_mobile: boolean;
+      allow_registration: boolean;
+      allow_swapping: boolean;
+    }): Promise<void> => {
+      const response = await fetch(`${API_BASE_URL}/api/v1/task-templates/${id}/publication`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to update publication settings: ${response.status}`);
+      }
+    },
+
+    getEmailTemplate: async (id: number): Promise<{ sender: string; subject: string; body_html: string; task_template_id?: number; has_unchanged_email_bodies?: boolean }> => {
+      const response = await fetch(`${API_BASE_URL}/api/v1/task-templates/${id}/email-template`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+      });
+      return await handleResponse(response);
+    },
+
+    updateEmailTemplate: async (id: number, data: { sender: string; subject: string; body_html: string }): Promise<void> => {
+      const response = await fetch(`${API_BASE_URL}/api/v1/task-templates/${id}/email-template`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to update email template: ${response.status}`);
+      }
+    },
+
+    getManagers: async (id: number): Promise<TaskManager[]> => {
+      const response = await fetch(`${API_BASE_URL}/api/v1/task-templates/${id}/managers`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+      });
+      return (await handleResponse(response)) as TaskManager[];
+    },
+
+    addManager: async (id: number, userId: number): Promise<TaskManager> => {
+      const response = await fetch(`${API_BASE_URL}/api/v1/task-templates/${id}/managers`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ user_id: userId }),
+      });
+      return (await handleResponse(response)) as TaskManager;
+    },
+
+    removeManager: async (id: number, userId: number): Promise<void> => {
+      const response = await fetch(`${API_BASE_URL}/api/v1/task-templates/${id}/managers/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          ...getAuthHeaders(),
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to remove manager: ${response.status}`);
       }
     },
   },
 
   slots: {
     getByVolunteerId: async (volunteerId: number): Promise<Slot[]> => {
+      const useMock = import.meta.env.VITE_USE_MOCK === 'true';
+      if (useMock) {
+        return mockSlots[volunteerId] || [];
+      }
+
       if (!ENABLE_SLOTS_API) {
         console.debug('[api.slots.getByVolunteerId] slots API disabled; returning empty list');
         return [];
       }
 
-      if (USE_MOCK_DATA) {
-        await delay(400);
-        return mockSlots[volunteerId] || [];
-      }
-
       // Try several common endpoints to fetch slots for a volunteer.
-      // Different backends may expose different routes; try them in order and
-      // return the first successful result. This also logs debug info to the
-      // console so it's easier to diagnose 404/Not Found issues in the browser.
       const endpoints = [
-        // preferred: query param on /api/slots
         `${API_BASE_URL}/api/slots?volunteer_id=${volunteerId}`,
-        // v1 prefix
         `${API_BASE_URL}/api/v1/slots?volunteer_id=${volunteerId}`,
-        // volunteers nested slots (some backends use this)
         `${API_BASE_URL}/api/volunteers/${volunteerId}/slots`,
         `${API_BASE_URL}/api/v1/volunteers/${volunteerId}/slots`,
-        // alternate pattern
         `${API_BASE_URL}/api/slots/volunteer/${volunteerId}`,
       ];
 
       let lastError: any = null;
       for (const url of endpoints) {
         try {
-          // log the attempted URL for easy client-side debugging
           console.debug('[api.slots.getByVolunteerId] trying', url);
           const resp = await fetch(url, {
             headers: {
@@ -385,7 +587,6 @@ export const api = {
             },
           });
 
-          // If not ok, capture body (if any) for better error messages and continue
           if (!resp.ok) {
             const text = await resp.text();
             console.debug('[api.slots.getByVolunteerId] non-ok', url, resp.status, text);
@@ -399,9 +600,7 @@ export const api = {
           })();
 
           if (!Array.isArray(data)) {
-            // Some APIs return an object with `results` or similar
             if (data && Array.isArray((data as any).results)) return (data as any).results as Slot[];
-            // otherwise treat unexpected body as an error
             console.debug('[api.slots.getByVolunteerId] unexpected body shape', url, data);
             lastError = new Error(JSON.stringify(data));
             continue;
@@ -415,30 +614,22 @@ export const api = {
         }
       }
 
-      // If none of the endpoints worked, throw the last error for the caller to display
       throw lastError || new Error('Failed to load slots for volunteer');
     },
 
-    /**
-     * Get all slots (optionally the backend may return volunteer info embedded).
-     */
     getAll: async (): Promise<Slot[]> => {
+      const useMock = import.meta.env.VITE_USE_MOCK === 'true';
+      if (useMock) {
+        // Flatten mockSlots
+        return Object.values(mockSlots).flat();
+      }
+
       if (!ENABLE_SLOTS_API) {
         console.debug('[api.slots.getAll] slots API disabled; returning empty list');
         return [];
       }
 
-      if (USE_MOCK_DATA) {
-        await delay(400);
-        // flatten mockSlots map
-        const all: Slot[] = [];
-        for (const k in mockSlots) {
-          all.push(...(mockSlots as any)[k]);
-        }
-        return all;
-      }
-
-      const response = await fetch(`${API_BASE_URL}/api/slots`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/slots`, {
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       });
 
@@ -451,25 +642,6 @@ export const api = {
     },
 
     create: async (data: CreateSlotData): Promise<Slot> => {
-      if (USE_MOCK_DATA) {
-        await delay(500);
-        const newSlot: Slot = {
-          id: getNextSlotId(),
-          volunteer_id: data.volunteer_id,
-          date: data.date,
-          time: data.time,
-          description: data.description,
-          status: data.status as 'confirmed' | 'pending' | 'cancelled',
-        };
-        if (!mockSlots[data.volunteer_id]) mockSlots[data.volunteer_id] = [];
-        mockSlots[data.volunteer_id].push(newSlot);
-
-        const volunteer = mockVolunteers.find((v: any) => v.id === data.volunteer_id);
-        if (volunteer) volunteer.booked_slots = (volunteer.booked_slots || 0) + 1;
-
-        return newSlot;
-      }
-
       const response = await fetch(`${API_BASE_URL}/api/slots`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
@@ -480,25 +652,6 @@ export const api = {
     },
 
     update: async (id: number, data: UpdateSlotData): Promise<Slot> => {
-      if (USE_MOCK_DATA) {
-        await delay(400);
-        for (const volunteerId in mockSlots) {
-          const slotIndex = mockSlots[volunteerId].findIndex((s: any) => s.id === id);
-          if (slotIndex !== -1) {
-            const updatedSlot: Slot = {
-              ...mockSlots[volunteerId][slotIndex],
-              ...(data.date && { date: data.date }),
-              ...(data.time && { time: data.time }),
-              ...(data.description && { description: data.description }),
-              ...(data.status && { status: data.status as 'confirmed' | 'pending' | 'cancelled' }),
-            };
-            mockSlots[volunteerId][slotIndex] = updatedSlot;
-            return updatedSlot;
-          }
-        }
-        throw new Error('Slot not found');
-      }
-
       const response = await fetch(`${API_BASE_URL}/api/slots/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
@@ -508,20 +661,6 @@ export const api = {
     },
 
     delete: async (id: number): Promise<void> => {
-      if (USE_MOCK_DATA) {
-        await delay(400);
-        for (const volunteerId in mockSlots) {
-          const slotIndex = mockSlots[volunteerId].findIndex((s: any) => s.id === id);
-          if (slotIndex !== -1) {
-            mockSlots[volunteerId].splice(slotIndex, 1);
-            const volunteer = mockVolunteers.find((v: any) => v.id === parseInt(volunteerId));
-            if (volunteer) volunteer.booked_slots = Math.max(0, volunteer.booked_slots - 1);
-            return;
-          }
-        }
-        throw new Error('Slot not found');
-      }
-
       const response = await fetch(`${API_BASE_URL}/api/slots/${id}`, {
         method: 'DELETE',
         headers: { ...getAuthHeaders() },
@@ -530,10 +669,6 @@ export const api = {
     },
 
     sendWhatsApp: async (id: number): Promise<{ message: string }> => {
-      if (USE_MOCK_DATA) {
-        await delay(600);
-        return { message: 'WhatsApp reminder sent successfully!' };
-      }
       const response = await fetch(`${API_BASE_URL}/api/slots/${id}/send-whatsapp`, {
         method: 'POST',
         headers: { ...getAuthHeaders() },
@@ -542,10 +677,6 @@ export const api = {
     },
 
     sendEmail: async (id: number): Promise<{ message: string }> => {
-      if (USE_MOCK_DATA) {
-        await delay(600);
-        return { message: 'Email reminder sent successfully!' };
-      }
       const response = await fetch(`${API_BASE_URL}/api/slots/${id}/send-email`, {
         method: 'POST',
         headers: { ...getAuthHeaders() },
@@ -553,6 +684,48 @@ export const api = {
       return (await handleResponse(response)) as { message: string };
     },
   },
+
+
+  locations: {
+    getAll: async (skip = 0, limit = 100): Promise<Location[]> => {
+      const params = new URLSearchParams();
+      params.append('skip', String(skip));
+      params.append('limit', String(limit));
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/locations?${params.toString()}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+      });
+
+      const data = await handleResponse(response);
+      if (!Array.isArray(data)) {
+        return [];
+      }
+      return data as Location[];
+    },
+    create: async (data: { name: string, description?: string }): Promise<Location> => {
+      const response = await fetch(`${API_BASE_URL}/api/v1/locations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify(data),
+      });
+      return (await handleResponse(response)) as Location;
+    },
+  },
 };
 
-export type { Volunteer, Slot, CreateSlotData, UpdateSlotData };
+export interface Location {
+  id: number;
+  name: string;
+  description?: string;
+  created_at?: string;
+}
+
+
+
+export type { Volunteer, Slot, CreateSlotData, UpdateSlotData, TaskTemplate, TaskManager };
