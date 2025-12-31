@@ -125,8 +125,17 @@ export const mockSlots: Record<number, Slot[]> = {
       description: 'Bar service Thursday 7:30 PM - 10:00 PM',
       status: 'confirmed',
     },
+    // Single Test Slot for UI Verification
     {
-      id: 104,
+      id: 9999,
+      volunteer_id: 1,
+      date: '2025-12-31',
+      time: '14:00 - 17:00',
+      description: 'Test Shift for UI Check',
+      status: 'pending',
+    },
+    {
+      id: 105,
       volunteer_id: 1,
       date: '2025-11-15',
       time: '15:00',

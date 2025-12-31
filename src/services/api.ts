@@ -1,7 +1,7 @@
-import { mockVolunteers, mockSlots } from './mockData';
+
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-export const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
+
 
 export const PREDEFINED_LOCATIONS = [
   { id: 1, name: "Sports park Molenzicht" },
@@ -10,7 +10,7 @@ export const PREDEFINED_LOCATIONS = [
 ];
 
 // Disable slots API calls while backend slot endpoints are not ready.
-export const ENABLE_SLOTS_API = false; // Disabled by user request
+
 
 /*
   Volunteer shape used by the UI. Backend returns many fields (see Swagger).
@@ -114,6 +114,30 @@ interface CreateTaskTemplateData {
   is_active?: boolean;
 }
 
+export interface GenerateScheduleRequest {
+  start_date: string;
+  start_time: string;
+  end_time: string;
+  all_day: boolean;
+  repetition: string;
+  repeat_until?: string | null;
+  name: string;
+  location_id: number;
+  repetition_id: number;
+}
+
+export interface GenerateScheduleRequest {
+  start_date: string;
+  start_time: string;
+  end_time: string;
+  all_day: boolean;
+  repetition: string;
+  repeat_until?: string | null;
+  name: string;
+  location_id: number;
+  repetition_id: number;
+}
+
 /* ADDED: improved handleResponse to surface JSON "detail" errors and handle empty bodies */
 const handleResponse = async (response: Response) => {
   if (!response.ok) {
@@ -191,29 +215,6 @@ export const api = {
       client_id?: string;
       client_secret?: string;
     }): Promise<{ access_token: string; token_type: string;[k: string]: any }> => {
-      const useMock = import.meta.env.VITE_USE_MOCK === 'true';
-
-      if (useMock) {
-        console.log('[Mock] Logging in with strict mock data');
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        if (data.username === 'fail') {
-          throw new Error('Invalid credentials');
-        }
-
-        return {
-          access_token: 'mock-jwt-token-12345',
-          token_type: 'bearer',
-          user: {
-            id: 1,
-            name: 'Mock User',
-            email: data.username,
-            role: 'admin'
-          }
-        };
-      }
-
       const form = new URLSearchParams();
       form.append('grant_type', data.grant_type ?? 'password');
       form.append('username', data.username);
@@ -243,13 +244,6 @@ export const api = {
     },
 
     getAll: async (skip = 0, limit = 100): Promise<Volunteer[]> => {
-      const useMock = import.meta.env.VITE_USE_MOCK === 'true';
-      if (useMock) {
-        console.log('[Mock] Fetching all volunteers');
-        await new Promise(resolve => setTimeout(resolve, 300));
-        return mockVolunteers.slice(skip, skip + limit);
-      }
-
       const key = `${skip}:${limit} `;
 
       if (api.volunteers._cache.getAll.has(key)) {
@@ -312,14 +306,6 @@ export const api = {
     },
 
     getById: async (id: number): Promise<Volunteer> => {
-      const useMock = import.meta.env.VITE_USE_MOCK === 'true';
-      if (useMock) {
-        console.log('[Mock] Fetching volunteer', id);
-        const v = mockVolunteers.find(mv => mv.id === id);
-        if (!v) throw new Error('Volunteer not found');
-        return v;
-      }
-
       if (api.volunteers._cache.getById.has(id)) {
         const cached = api.volunteers._cache.getById.get(id);
         if (cached) return cached;
@@ -379,22 +365,6 @@ export const api = {
 
   taskTemplates: {
     getAll: async (skip = 0, limit = 100): Promise<TaskTemplate[]> => {
-      const useMock = import.meta.env.VITE_USE_MOCK === 'true';
-      if (useMock) {
-        console.log('[Mock] Fetching task templates');
-        // Return dummy task templates if strict mock data is needed, or empty array
-        return [
-          {
-            id: 1,
-            name: 'Bar Service Test',
-            description: 'Mock bar service',
-            task_value: 10,
-            min_volunteers: 2,
-            max_volunteers: 4
-          }
-        ];
-      }
-
       const params = new URLSearchParams();
       params.append('skip', String(skip));
       params.append('limit', String(limit));
@@ -436,6 +406,40 @@ export const api = {
       });
 
       return (await handleResponse(response)) as TaskTemplate;
+    },
+
+    generateSchedule: async (id: number, data: GenerateScheduleRequest): Promise<void> => {
+      const response = await fetch(`${API_BASE_URL}/api/v1/task-templates/${id}/schedule`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to generate schedule: ${response.status} ${text}`);
+      }
+      return (await handleResponse(response));
+    },
+
+    generateSchedule: async (id: number, data: GenerateScheduleRequest): Promise<void> => {
+      const response = await fetch(`${API_BASE_URL}/api/v1/task-templates/${id}/schedule`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to generate schedule: ${response.status} ${text}`);
+      }
+      return (await handleResponse(response));
     },
 
     update: async (id: number, data: Partial<TaskTemplate>): Promise<TaskTemplate> => {
@@ -557,16 +561,6 @@ export const api = {
 
   slots: {
     getByVolunteerId: async (volunteerId: number): Promise<Slot[]> => {
-      const useMock = import.meta.env.VITE_USE_MOCK === 'true';
-      if (useMock) {
-        return mockSlots[volunteerId] || [];
-      }
-
-      if (!ENABLE_SLOTS_API) {
-        console.debug('[api.slots.getByVolunteerId] slots API disabled; returning empty list');
-        return [];
-      }
-
       // Try several common endpoints to fetch slots for a volunteer.
       const endpoints = [
         `${API_BASE_URL}/api/slots?volunteer_id=${volunteerId}`,
@@ -618,17 +612,6 @@ export const api = {
     },
 
     getAll: async (): Promise<Slot[]> => {
-      const useMock = import.meta.env.VITE_USE_MOCK === 'true';
-      if (useMock) {
-        // Flatten mockSlots
-        return Object.values(mockSlots).flat();
-      }
-
-      if (!ENABLE_SLOTS_API) {
-        console.debug('[api.slots.getAll] slots API disabled; returning empty list');
-        return [];
-      }
-
       const response = await fetch(`${API_BASE_URL}/api/v1/slots`, {
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       });
