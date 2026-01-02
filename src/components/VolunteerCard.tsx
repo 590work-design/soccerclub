@@ -25,7 +25,7 @@ export const VolunteerCard = ({ volunteer, isSelected, onClick }: VolunteerCardP
           </div>
         </div>
         <span className="text-sm font-medium text-muted-foreground shrink-0">
-          {volunteer.points} pts
+          {volunteer.points || 0} pts
         </span>
       </div>
     </div>

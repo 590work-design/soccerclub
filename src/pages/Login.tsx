@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { User, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { User, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { api } from '@/services/api'; // ADDED: import api to call auth.login (calls FastAPI)
 import logo from '@/assets/logo.svg';
 
@@ -18,6 +19,7 @@ const Login = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -25,6 +27,7 @@ const Login = () => {
       ...prev,
       [name]: value
     }));
+    if (error) setError('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -87,8 +90,26 @@ const Login = () => {
     } catch (err: any) {
       // ADDED: improved console logging and user toast for backend error messages
       console.error('Login error', err);
-      const msg = err?.message ?? (err?.toString ? err.toString() : 'Login failed');
+
+      let msg = 'Login failed';
+
+      if (err?.detail) {
+        msg = err.detail;
+      } else if (err?.message) {
+        // Check if message is JSON string
+        try {
+          const parsed = JSON.parse(err.message);
+          if (parsed.detail) msg = parsed.detail;
+          else msg = err.message;
+        } catch {
+          msg = err.message;
+        }
+      } else if (typeof err === 'string') {
+        msg = err;
+      }
+
       toast.error(msg);
+      setError(msg);
     } finally {
       setIsLoading(false);
     }
@@ -121,6 +142,12 @@ const Login = () => {
         </CardHeader>
 
         <CardContent className="px-8 pb-8">
+          {error && (
+            <div className="mb-6 p-3 rounded-md bg-destructive/10 border border-destructive/20 flex items-center gap-3 text-destructive animate-in slide-in-from-top-2 fade-in duration-300">
+              <AlertCircle className="h-5 w-5 shrink-0" />
+              <p className="text-sm font-medium">{error}</p>
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email Field */}
             <div className="space-y-2">
@@ -134,7 +161,10 @@ const Login = () => {
                   placeholder="name@example.com"
                   value={formData.email}
                   onChange={handleChange}
-                  className="pl-10 h-12 text-base bg-muted/30 border-input group-hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  className={cn(
+                    "pl-10 h-12 text-base bg-muted/30 border-input group-hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all",
+                    error && "border-red-500 focus-visible:ring-red-500 focus:border-red-500"
+                  )}
                 />
               </div>
             </div>
@@ -154,7 +184,10 @@ const Login = () => {
                   placeholder="Enter your password"
                   value={formData.password}
                   onChange={handleChange}
-                  className="pl-10 pr-10 h-12 text-base bg-muted/30 border-input group-hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  className={cn(
+                    "pl-10 pr-10 h-12 text-base bg-muted/30 border-input group-hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all",
+                    error && "border-red-500 focus-visible:ring-red-500 focus:border-red-500"
+                  )}
                 />
                 <button
                   type="button"
